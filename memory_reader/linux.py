@@ -1,7 +1,7 @@
 import math
 from subprocess import check_output, CalledProcessError
 
-from . utils import find_all
+from . utils import find_all, value_from_bytes
 
 
 class MemoryReader():
@@ -49,18 +49,11 @@ class MemoryReader():
         with open('/proc/' + str(self.process_id) + '/mem', 'rb') as infile:
             try:
                 infile.seek(address)
-                value = infile.read(num_bytes)
+                bytes_buffer = infile.read(num_bytes)
             except ValueError:
                 return None
-            if data_type == 'bytes':
-                return value
-            elif data_type == 'int':
-                return int.from_bytes(value, byteorder)
-            elif data_type == 'string':
-                try:
-                    return value.decode('utf-8').strip()
-                except UnicodeDecodeError:
-                    return None
+            value = value_from_bytes(bytes_buffer, 0x0, data_type, num_bytes, byteorder)
+            return value
 
     def scan_process_memory(self, search_value, byteorder='little'):
         found_addresses = set()

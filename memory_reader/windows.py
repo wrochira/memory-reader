@@ -1,7 +1,7 @@
 import math
 import ctypes
 
-from . utils import find_all
+from . utils import find_all, value_from_bytes
 
 
 PROCESS_ALL_ACCESS = 0x1F0FFF
@@ -63,26 +63,22 @@ class MemoryReader():
         modules = win32process.EnumProcessModules(self.process_handle)
         return modules
 
-    def read_process_memory(self, address, data_type='int', num_bytes=4):
+    def read_process_memory(self,
+                            address,
+                            data_type='int',
+                            num_bytes=4,
+                            byteorder='little'):
         bytes_buffer = b'.' * num_bytes
         bytes_read = ctypes.c_ulong(0)
         ReadProcessMemory(self.process_handle, address, bytes_buffer, num_bytes, ctypes.byref(bytes_read))
-        if data_type == 'bytes':
-            return bytes_buffer
-        elif data_type == 'int':
-            if num_bytes <= 4:
-                val = ctypes.c_int()
-            elif num_bytes <= 8:
-                val = ctypes.c_int64()
-            else:
-                raise Exception('Too many bytes!')
-            ctypes.memmove(ctypes.byref(val), bytes_buffer, ctypes.sizeof(val))
-            return val.value
-        elif data_type == 'string':
-            char_buffer = ctypes.c_char_p(bytes_buffer)
-            return char_buffer.value.decode('unicode_escape')
+        value = value_from_bytes(bytes_buffer, 0x0, data_type, num_bytes, byteorder)
+        return value
 
-    def scan_process_memory(self, search_value, address_range=(0x00000000, 0xFFFFFFFF), chunk_width=0x020000, byteorder='little'):
+    def scan_process_memory(self,
+                            search_value,
+                            address_range=(0x00000000, 0xFFFFFFFF),
+                            chunk_width=0x020000,
+                            byteorder='little'):
         found_addresses = set()
         if type(search_value) == bytes:
             search_bytes = search_value
@@ -107,7 +103,6 @@ class MemoryReader():
                 if match_address < address_range[-1]:
                     found_addresses.add(match_address)
         return sorted(found_addresses)
-
 
     def resolve_pointer(self, base_pointer, offsets):
         pointer = base_pointer + offsets[0]
